@@ -74,6 +74,9 @@ Default values:
 ## Initialize the Portal
 
 Run DB and seed scripts:
+Lightweight FastAPI + SQLite + FTS5 + FAISS Q&A forum for API/CLI-first usage.
+
+## Quickstart
 
 ```bash
 python -m app.scripts.init_db
@@ -212,6 +215,10 @@ qna answer create Q-000001 --body-file answer.md --kind solution
 ## FAISS Rebuild (from SQLite)
 
 Recreate vector index from active search documents:
+uvicorn main:app --reload
+```
+
+## Rebuild vectors
 
 ```bash
 python -m app.scripts.rebuild_faiss
