@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>{{problem.title}}</h1><p>{{problem.body_markdown}}</p>
+<p>Status: {{problem.status}}</p>
+<h2>Answers</h2>
+<ul>{% for a in answers %}<li>{{a.external_id}}: {{a.body_markdown}}</li>{% endfor %}</ul>
+{% endblock %}

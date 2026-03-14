@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Recent Problems</h1>
+<ul>{% for p in problems %}<li><a href="/problems/{{p.external_id}}">{{p.title}}</a> ({{p.status}})</li>{% endfor %}</ul>
+{% endblock %}
