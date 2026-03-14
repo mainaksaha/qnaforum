@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block content %}
+<h1>Audit</h1>
+<ul>{% for e in events %}<li>{{e.created_at}} {{e.event_type}} {{e.entity_type}} {{e.entity_id}}</li>{% endfor %}</ul>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block content %}
+<h1>User {{user.username}}</h1>
+<form method="post" action="/admin/users/{{user.id}}/issue-key"><button>Issue API Key</button></form>
+<ul>{% for k in keys %}<li>{{k.key_prefix}}... ({{k.status}})</li>{% endfor %}</ul>
+{% endblock %}
