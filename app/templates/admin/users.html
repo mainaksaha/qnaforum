@@ -1,0 +1,7 @@
+{% extends 'base.html' %}{% block content %}
+<h1>Users</h1>
+<form method="post" action="/admin/users">
+<input name="username" placeholder="username"><input name="display_name" placeholder="display"><input name="email" placeholder="email"><select name="role"><option>user</option><option>admin</option></select><button>Create</button>
+</form>
+<ul>{% for u in users %}<li><a href="/admin/users/{{u.id}}">{{u.username}}</a></li>{% endfor %}</ul>
+{% endblock %}
