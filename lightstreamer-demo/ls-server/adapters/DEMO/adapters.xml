@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!--
+  Lightstreamer Demo – Adapter configuration
+  ==========================================
+  Uses ROBUST_PROXY_FOR_REMOTE_ADAPTER so the LS Server opens listening ports
+  (6661 / 6662 / 6663) that the Python Remote Adapter connects back to.
+  "ROBUST" adds automatic reconnection on transient TCP failures.
+-->
+<adapters_conf id="DEMO">
+
+    <!-- ── Metadata Adapter ─────────────────────────────────────────────── -->
+    <metadata_provider>
+        <adapter_class>ROBUST_PROXY_FOR_REMOTE_ADAPTER</adapter_class>
+        <classloader>log-enabled</classloader>
+
+        <!-- LS server opens this port; Python adapter connects here -->
+        <param name="request_reply_port">6663</param>
+
+        <!-- 10-hour idle timeout (demo sessions can be long) -->
+        <param name="timeout">36000000</param>
+        <param name="connection_recovery">y</param>
+    </metadata_provider>
+
+    <!-- ── Data Adapter ──────────────────────────────────────────────────── -->
+    <data_provider name="DEFAULT">
+        <adapter_class>ROBUST_PROXY_FOR_REMOTE_ADAPTER</adapter_class>
+        <classloader>log-enabled</classloader>
+
+        <!-- request/reply channel (subscriptions, commands) -->
+        <param name="request_reply_port">6661</param>
+        <!-- async-notify channel (real-time item updates flow this way) -->
+        <param name="notify_port">6662</param>
+
+        <param name="timeout">36000000</param>
+        <param name="connection_recovery">y</param>
+    </data_provider>
+
+</adapters_conf>
