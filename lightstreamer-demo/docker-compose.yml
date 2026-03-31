@@ -1,0 +1,101 @@
+###############################################################################
+#  Lightstreamer SSE / Long-Polling Demo
+#  =======================================
+#
+#  Services
+#  ────────
+#  ls-server      Lightstreamer Community Edition server (JVM)
+#                 Internal adapter ports: 6661 / 6662 / 6663
+#
+#  backend        Python Remote Data Adapter
+#                 Connects TO ls-server on the adapter ports and pushes
+#                 simulated live Q&A events every ~2-3 seconds.
+#
+#  direct-nginx   Port 3000  →  Streams frontend + proxies /lightstreamer/*
+#                 WITHOUT buffering → SSE / WebSocket works end-to-end.
+#
+#  proxy-nginx    Port 9090  →  Serves same frontend + proxies /lightstreamer/*
+#                 WITH aggressive buffering and HTTP/1.0 → SSE is broken,
+#                 Lightstreamer client falls back to HTTP Long Polling
+#                 automatically.
+#
+#  Demo
+#  ────
+#  Open http://localhost:3000  →  See "HTTP-STREAMING" or "WS-STREAMING"
+#  Open http://localhost:9090  →  See "HTTP-POLLING"    (same code, different transport)
+#
+#  When you remove the proxy-nginx (or visit port 3000 directly),
+#  the client switches back to streaming with zero code changes.
+###############################################################################
+
+version: "3.9"
+
+networks:
+  ls-net:
+    driver: bridge
+
+services:
+
+  # ── Lightstreamer Server ────────────────────────────────────────────────────
+  ls-server:
+    image: lightstreamer:latest
+    networks:
+      - ls-net
+    volumes:
+      # Mount our DEMO adapter configuration
+      - ./ls-server/adapters/DEMO:/lightstreamer/adapters/DEMO:ro
+    # Port 8080 is NOT exposed to the host — clients always go through nginx.
+    # The adapter ports (6661-6663) are internal to the Docker network.
+    expose:
+      - "8080"   # HTTP client connections
+      - "6661"   # Data adapter  – request/reply
+      - "6662"   # Data adapter  – async notify
+      - "6663"   # Metadata adapter – request/reply
+    healthcheck:
+      # LS server is a JVM app; give it up to 90 s to start
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/lightstreamer/ 2>&1 | grep -q 'connected\\|200\\|302\\|Lightstreamer' || wget -q -O- http://localhost:8080/lightstreamer/ > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  # ── Python Remote Data Adapter ─────────────────────────────────────────────
+  backend:
+    build: ./backend
+    networks:
+      - ls-net
+    depends_on:
+      ls-server:
+        condition: service_started   # we retry in Python; no need for healthy
+    environment:
+      LS_HOST:          ls-server
+      LS_PORT_DATA:     "6661"
+      LS_PORT_NOTIFY:   "6662"
+      LS_PORT_METADATA: "6663"
+    restart: on-failure
+
+  # ── Direct nginx (no proxy buffering – streaming works) ────────────────────
+  direct-nginx:
+    image: nginx:alpine
+    networks:
+      - ls-net
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx-direct.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - ls-server
+
+  # ── Proxy nginx (aggressive buffering – simulates dumb enterprise proxy) ───
+  proxy-nginx:
+    image: nginx:alpine
+    networks:
+      - ls-net
+    ports:
+      - "9090:80"
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - ls-server

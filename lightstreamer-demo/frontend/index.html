@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lightstreamer – SSE / Long-Polling Demo</title>
+
+  <!-- Lightstreamer Web Client SDK (UMD bundle, works without a build step) -->
+  <script src="https://cdn.jsdelivr.net/npm/lightstreamer-client-web@9.2.0/lightstreamer.min.js"></script>
+
+  <style>
+    /* ── Reset & base ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────────────── */
+    .page { max-width: 900px; margin: 0 auto; }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: .25rem;
+    }
+    .subtitle {
+      color: #94a3b8;
+      font-size: .9rem;
+      margin-bottom: 2rem;
+    }
+
+    /* ── Transport badge ────────────────────────────────────────────────────── */
+    .transport-card {
+      border-radius: 12px;
+      border: 2px solid #334155;
+      background: #1e293b;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: border-color .4s;
+    }
+    .transport-card.ws-streaming  { border-color: #22c55e; }
+    .transport-card.http-streaming { border-color: #3b82f6; }
+    .transport-card.http-polling   { border-color: #f59e0b; }
+    .transport-card.connecting     { border-color: #6b7280; }
+    .transport-card.disconnected   { border-color: #ef4444; }
+
+    .dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #6b7280;
+      flex-shrink: 0;
+      transition: background .4s;
+      box-shadow: 0 0 0 0 rgba(255,255,255,.2);
+    }
+    .dot.pulse {
+      animation: pulse 1.4s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0   rgba(255,255,255,.4); }
+      70%  { box-shadow: 0 0 0 8px rgba(255,255,255,0);  }
+      100% { box-shadow: 0 0 0 0   rgba(255,255,255,0);  }
+    }
+
+    .transport-info { flex: 1; }
+    .transport-label {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .transport-desc {
+      font-size: .8rem;
+      color: #94a3b8;
+      margin-top: .2rem;
+      line-height: 1.4;
+    }
+    .transport-raw {
+      font-size: .75rem;
+      color: #475569;
+      font-family: monospace;
+      margin-top: .3rem;
+    }
+
+    /* ── Scenario banner ────────────────────────────────────────────────────── */
+    .scenario-banner {
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: .875rem;
+      line-height: 1.5;
+    }
+    .scenario-banner.direct {
+      background: #052e16;
+      border-left: 4px solid #22c55e;
+      color: #86efac;
+    }
+    .scenario-banner.proxy {
+      background: #451a03;
+      border-left: 4px solid #f59e0b;
+      color: #fcd34d;
+    }
+
+    /* ── Stats grid ─────────────────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: .75rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 600px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat-card {
+      background: #1e293b;
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #f8fafc;
+      transition: color .3s;
+    }
+    .stat-value.flash { color: #38bdf8; }
+    .stat-label {
+      font-size: .75rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-top: .2rem;
+    }
+
+    /* ── Live feed ──────────────────────────────────────────────────────────── */
+    .feed-section {
+      background: #1e293b;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .feed-header {
+      padding: .75rem 1.25rem;
+      background: #0f172a;
+      font-size: .8rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .feed-counter {
+      background: #1e293b;
+      border-radius: 9999px;
+      padding: .1rem .6rem;
+      font-size: .7rem;
+      color: #94a3b8;
+    }
+    #feed-list {
+      list-style: none;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    .feed-item {
+      display: flex;
+      align-items: baseline;
+      gap: .6rem;
+      padding: .6rem 1.25rem;
+      border-bottom: 1px solid #0f172a;
+      animation: slideIn .25s ease;
+      font-size: .875rem;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .feed-time   { color: #475569; font-size: .75rem; font-family: monospace; flex-shrink: 0; }
+    .feed-badge {
+      display: inline-block;
+      padding: .1rem .45rem;
+      border-radius: 4px;
+      font-size: .7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .feed-badge.asked     { background: #1d4ed8; color: #bfdbfe; }
+    .feed-badge.answered  { background: #15803d; color: #bbf7d0; }
+    .feed-badge.upvoted   { background: #7c3aed; color: #ddd6fe; }
+    .feed-badge.accepted  { background: #b45309; color: #fde68a; }
+    .feed-badge.commented { background: #0e7490; color: #a5f3fc; }
+    .feed-badge.edited    { background: #374151; color: #d1d5db; }
+    .feed-msg  { color: #cbd5e1; flex: 1; }
+    .placeholder { padding: 1.5rem 1.25rem; color: #475569; font-style: italic; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Lightstreamer — SSE &amp; Long-Polling Demo</h1>
+  <p class="subtitle">
+    Same client code, same server. Transport is negotiated automatically.
+  </p>
+
+  <!-- Scenario banner (filled by JS) -->
+  <div class="scenario-banner" id="scenario-banner"></div>
+
+  <!-- Transport status card -->
+  <div class="transport-card connecting" id="transport-card">
+    <div class="dot" id="dot"></div>
+    <div class="transport-info">
+      <div class="transport-label" id="transport-label">Connecting…</div>
+      <div class="transport-desc"  id="transport-desc"></div>
+      <div class="transport-raw"   id="transport-raw"></div>
+    </div>
+  </div>
+
+  <!-- Live stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="total_questions">—</div>
+      <div class="stat-label">Questions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="total_answers">—</div>
+      <div class="stat-label">Answers</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="online_users">—</div>
+      <div class="stat-label">Online</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="last_update">—</div>
+      <div class="stat-label">Last update</div>
+    </div>
+  </div>
+
+  <!-- Live activity feed -->
+  <div class="feed-section">
+    <div class="feed-header">
+      Live activity feed
+      <span class="feed-counter" id="feed-counter">0 events</span>
+    </div>
+    <ul id="feed-list">
+      <li class="placeholder">Waiting for live data…</li>
+    </ul>
+  </div>
+
+</div><!-- .page -->
+
+<script src="app.js"></script>
+</body>
+</html>
